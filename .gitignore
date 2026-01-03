@@ -12,10 +12,11 @@ _site/
 .DS_Store
 Thumbs.db
 
-# Logs/temp 
+# Logs/temp
 *.log
 *.tmp
 
 #Renviron/secrets
 .Renviron
 .env
+/.quarto/
