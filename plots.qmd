@@ -7,6 +7,104 @@ runtime: shiny
 ---
 [Click here for Data View](index.qmd)
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
 
+library(DBI)
+library(RSQLite)
+library(dplyr)
+library(ggplot2)
+library(shiny)
+library(lubridate)
+
+
+#connect to SQLlite db
+con <- dbConnect(SQLite(), "data/virtual_production.db")
+#read data frames
+raw_prod <- dbReadTable(con, "Productions")
+
+crewmembers <- dbReadTable(con, "CrewMembers")
+production_crew <- dbReadTable(con, "ProductionCrew")
+
+
+#mutate was added as it looked like the dates are from an old excel and would not parse correctly. 
+productions <- raw_prod %>%
+  mutate(
+    StartDate = as.Date(as.numeric(StartDate), origin = "1904-01-01"),
+    EndDate   = as.Date(as.numeric(EndDate), origin = "1904-01-01"),
+    Success   = ifelse(Status == "Completed", 1, 0)
+  )
+
+ui <- fluidPage(
+#slider used here to filter
+  sliderInput(
+    "budget_range",
+    "Budget range:",
+    min = min(productions$Budget, na.rm = TRUE),
+    max = max(productions$Budget, na.rm = TRUE),
+    value = c(
+      min(productions$Budget, na.rm = TRUE),
+      max(productions$Budget, na.rm = TRUE)
+    ),
+    step = 1000
+  ),
+
+  checkboxGroupInput(
+    "status_pick",
+    "Include production statuses:",
+    choices  = sort(unique(productions$Status)),
+    selected = sort(unique(productions$Status))
+  ),
+# Output area for the plot
+  plotOutput("budget_plot", height = "450px"),
+)
+#Server side
+server <- function(input, output, session) {
+
+  #date ranges
+  observeEvent(TRUE, {
+    updateDateRangeInput(
+      session,
+      "date_range",
+      start = min(productions$StartDate, na.rm = TRUE),
+      end   = max(productions$StartDate, na.rm = TRUE)
+    )
+  }, once = TRUE)
+ 
+
+   #first plot/Create the budget vs completion plot
+  output$budget_plot <- renderPlot({
+    req(input$budget_range, input$status_pick)
+#filter based on user selections
+    df <- productions %>%
+      filter(
+        Budget >= input$budget_range[1],
+        Budget <= input$budget_range[2],
+        Status %in% input$status_pick
+      )
+
+    req(nrow(df) > 0)
+# Plot budget vs completion
+    ggplot(df, aes(x = Budget, y = Success)) +
+      geom_jitter(height = 0.05, alpha = 0.7) +
+      geom_smooth(method = "lm", se = TRUE) +
+      labs(
+        title = "Completion vs Budget",
+        x = "Budget",
+        y = "Completed (0/1)"
+      ) +
+      theme_minimal()
+  })
+ 
+    #nothing
+  #close the db 
+  onStop(function() {
+    try(dbDisconnect(con), silent = TRUE)
+  })
+} 
+
+shinyApp(ui, server)  
 ```
+
 
