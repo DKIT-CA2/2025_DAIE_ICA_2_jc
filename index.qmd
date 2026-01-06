@@ -1,11 +1,63 @@
 ---
 title: "Home Page"
+format: html
+runtime: shiny
 ---
-
-This is a Quarto website.
-
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
-
+[Click here for plot view](plots.qmd)
 ```{r}
-1 + 1
+#| echo: false
+#| message: false
+#| warning: false
+
+library(DBI)
+library(RSQLite)
+library(DT)
+library(shiny) #builds interactive pages
+# connect to db
+con <- dbConnect(SQLite(), "data/virtual_production.db")
+#making a specific list of tables that can be viewed
+tables_allowed <- c(
+  "Productions",
+  "CrewMembers",
+  "ProductionCrew",
+  "Assets"
+)
+#fluid page does not seem to work,shiny related.
+ui <- fluidPage(
+
+  h2("Data View"),
+# got links to work between pages , left this here just in case
+#  tags$a(
+ #   href = "plots.html",
+ #   "Go to Plot View →",
+ #   style = "font-size:16px; display:block; margin-bottom:20px;"
+#  ),
+
+  selectInput(
+    "table_pick",
+    "Choose a table:",
+    choices = tables_allowed
+  ),
+  #table will be displayed here
+  DTOutput("table_out")
+)
+#back-end server logic
+server <- function(input, output, session) {
+  output$table_out <- renderDT({
+    req(input$table_pick)
+     #small db file
+    df <- dbReadTable(con, input$table_pick)
+    datatable(
+      df,
+      options = list(pageLength = 10, scrollX = TRUE),
+      rownames = FALSE
+    )
+  })
+ # closes the db file when session is finished
+  onStop(function() {
+    try(dbDisconnect(con), silent = TRUE)
+  })
+}
+
+shinyApp(ui, server)
 ```

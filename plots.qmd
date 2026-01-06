@@ -1,11 +1,12 @@
 ---
-title: "Plots Page"
+title: "Plot View"
+format:
+  html:
+    page-layout: full
+runtime: shiny
 ---
-
-This is a Quarto website.
-
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
-
+[Click here for Data View](index.qmd)
 ```{r}
-1 + 1
+
 ```
+
